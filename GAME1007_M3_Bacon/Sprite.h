@@ -58,4 +58,5 @@ public:
 
 	// Class methods
 	void animate();
+	void renderOffset(SDL_Renderer * renderer, SDL_Rect* camera, int screenW, int screenH);
 };

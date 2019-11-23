@@ -40,7 +40,7 @@ Uint32 g_start, g_end, g_delta, g_fps;	// Fixed timestamp variables
 const Uint8* g_iKeystates;			// Keyboard state container
 SDL_Window* g_pWindow;				// This represents the SDL window
 SDL_Renderer* g_pRenderer;			// This represents the buffer to draw to
-SDL_Rect g_rfield;					// This represents the playing field
+SDL_Rect g_rCamera;					// This represents the area viewed by the camera
 
 // Global gameplay variables
 int g_iBounds = 8;					// Bounds at the edge of the play area
@@ -89,14 +89,14 @@ bool init(const char* title, int xpos, int ypos, int width, int height, int flag
 
 	g_fps = (Uint32)round((1 / (double)FPS) * 1000); // Sets FPS in milliseconds and rounds
 	g_iKeystates = SDL_GetKeyboardState(nullptr);
-	g_rfield = { 0, 0, WIDTH, HEIGHT };
 
 	// Create the base gameplay objects
 	g_projectileSprite = { 0, 0, 32, 32, 0, 0, 16, 16, g_pTex_Bullet, 2, 4 };
 	g_weapon = { &g_vProjectileVec, &g_projectileSprite, beam, 5, 0, 0, 1, 1, 8 };
 	g_player = { &g_weapon, PLAYERSPEED, PLAYERENERGY, PLAYERENERGYMAX, PLAYERREGENRATE, PLAYERREGENQTY, 
 		0, 0, 32, 32, WIDTH / 10, HEIGHT / 2 - 16, 32, 32, g_pTex_Player, 8, 1 };
-	g_Background = { BACKGROUNDFRAMES, 1, 0, 0, 1920, 1080, 0, 0, 1920, 1080, g_pTex_BG };
+	g_Background = { BACKGROUNDFRAMES, 1, 0, 0, 1920, 1080, 0, (HEIGHT - 1080) / 2, 1920, 1080, g_pTex_BG };
+	g_rCamera = { 0, 0, WIDTH, HEIGHT};
 
 	// Create the ammo sprite
 	//g_rMaxAmmo = { WIDTH / 100, HEIGHT / 100, WIDTH / 80, HEIGHT / 8 };
@@ -180,15 +180,31 @@ void update()
 
 	// Take input from the player and update the player's position
 	if (keyDown(SDL_SCANCODE_W) && g_player.getY() - g_iBounds > 0)
+	{
 		g_player.setY(g_player.getY() - g_player.getSpeed());
+		g_rCamera.y -= g_player.getSpeed();
+	}
 	if (keyDown(SDL_SCANCODE_S) && g_player.getY() + g_player.getH() + g_iBounds < HEIGHT)
+	{
 		g_player.setY(g_player.getY() + g_player.getSpeed());
+		g_rCamera.y += g_player.getSpeed();
+	}
 	if (keyDown(SDL_SCANCODE_A) && g_player.getX() - g_iBounds > 0)
 		g_player.setX(g_player.getX() - g_player.getSpeed());
 	if (keyDown(SDL_SCANCODE_D) && g_player.getX() + g_player.getW() + g_iBounds < WIDTH / 2)
 		g_player.setX(g_player.getX() + g_player.getSpeed());
 	if (keyDown(SDL_SCANCODE_SPACE) && g_player.m_iEnergy > 0)
 		g_player.m_iEnergy += g_player.m_pWeapon->fire(g_player.getX() + g_player.getW() / 2, g_player.getY() + g_player.getH() / 2);
+	
+	// Update playing field
+	//m_dst2.y = m_dst.y = static_cast<int>(
+	//	(static_cast<double>(-playerY) / static_cast<double>(screenH)) *
+	//	(static_cast<double>(m_src.h) - static_cast<double>(screenH)));
+	/*g_rField.y = -g_player.getY() / HEIGHT * g_Background.getH() - HEIGHT;
+
+	HEIGHT / 2*/ 
+
+
 	// Update objects
 	g_Background.update(HEIGHT, g_player.getY());
 	g_player.update();
@@ -215,15 +231,21 @@ void update()
 void render()
 {
 	// Render stuff
-	SDL_RenderCopy(g_pRenderer, g_Background.getTex(), g_Background.getSrc(), g_Background.getDst());
-	SDL_RenderCopy(g_pRenderer, g_Background.getTex(), g_Background.getSrc(), g_Background.getDst2());
-	SDL_SetRenderDrawColor(g_pRenderer, 128, 144, 160, 64);
-	SDL_RenderFillRect(g_pRenderer, &g_rMaxAmmo);
-	SDL_SetRenderDrawColor(g_pRenderer, 176, 208, 240, 255);
-	SDL_RenderFillRect(g_pRenderer, &g_rCurAmmo);
-	SDL_RenderCopyEx(g_pRenderer, g_player.getTex(), g_player.getSrc(), g_player.getDst(), 0, nullptr, SDL_FLIP_HORIZONTAL);
+	//SDL_RenderCopy(g_pRenderer, g_Background.getTex(), g_Background.getSrc(), g_Background.getDst());
+	//SDL_RenderCopy(g_pRenderer, g_Background.getTex(), g_Background.getSrc(), g_Background.getDst2());
+	//SDL_SetRenderDrawColor(g_pRenderer, 128, 144, 160, 64);
+	//SDL_RenderFillRect(g_pRenderer, &g_rMaxAmmo);
+	//SDL_SetRenderDrawColor(g_pRenderer, 176, 208, 240, 255);
+	//SDL_RenderFillRect(g_pRenderer, &g_rCurAmmo);
+	//SDL_RenderCopyEx(g_pRenderer, g_player.getTex(), g_player.getSrc(), g_player.getDst(), 0, nullptr, SDL_FLIP_HORIZONTAL);
+	//for (int i = 0; i < (int)g_vProjectileVec.size(); i++)
+	//	SDL_RenderCopy(g_pRenderer, g_vProjectileVec[i]->getTex(), g_vProjectileVec[i]->getSrc(), g_vProjectileVec[i]->getDst());
+	g_Background.renderOffset(g_pRenderer, &g_rCamera, WIDTH, HEIGHT);
+	g_player.renderOffset(g_pRenderer, &g_rCamera, WIDTH, HEIGHT);
 	for (int i = 0; i < (int)g_vProjectileVec.size(); i++)
-		SDL_RenderCopy(g_pRenderer, g_vProjectileVec[i]->getTex(), g_vProjectileVec[i]->getSrc(), g_vProjectileVec[i]->getDst());
+		g_vProjectileVec[i]->renderOffset(g_pRenderer, &g_rCamera, WIDTH, HEIGHT);
+	
+
 
 	// Draw anew
 	SDL_RenderPresent(g_pRenderer);

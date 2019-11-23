@@ -2,11 +2,6 @@
 
 void Background::update(int screenH, int playerY)
 {
-	// Smoothly update the y position relative to the player
-	m_dst2.y = m_dst.y = static_cast<int>(
-		(static_cast<double>(-playerY) / static_cast<double>(screenH)) *
-		(static_cast<double>(m_src.h) - static_cast<double>(screenH)));
-
 	// Update the x position only on frame count
 	if (m_iMoveCD == m_iMoveRate)
 	{

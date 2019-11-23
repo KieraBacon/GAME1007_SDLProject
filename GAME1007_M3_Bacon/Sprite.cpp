@@ -16,3 +16,11 @@ void Sprite::animate()
 			m_frame++;			// Increment the frame counter
 	}
 }
+
+void Sprite::renderOffset(SDL_Renderer * renderer, SDL_Rect* camera, int screenW, int screenH)
+{
+	//SDL_Rect l_rOffset = { m_dst.x - camera->x, m_dst.y - camera->y, m_dst.w / camera->w / screenW, m_dst.h / camera->h / screenH };
+	//SDL_Rect l_rOffset = { m_dst.x, m_dst.y, m_dst.w, m_dst.h };
+	SDL_Rect l_rOffset = { m_dst.x - camera->x, m_dst.y - camera->y, m_dst.w, m_dst.h };
+	SDL_RenderCopy(renderer, m_tex, &m_src, &l_rOffset);
+}
