@@ -1,5 +1,29 @@
 #include "Sprite.h"
 
+Sprite::Sprite(int src_x, int src_y, int src_w, int src_h,
+	int dst_x, int dst_y, int dst_w, int dst_h,
+	SDL_Texture* tex, int spriteMax, int frameMax) :
+	m_src{ src_x, src_y, src_w, src_h },
+	m_dst{ dst_x, dst_y, dst_w, dst_h },
+	m_tex(tex),
+	m_spriteMax(spriteMax),
+	m_frameMax(frameMax) {}
+
+Sprite::Sprite(int x, int y, int w, int h,
+	SDL_Texture* tex, int spriteMax, int frameMax) :
+	m_src{ 0, 0, w, h },
+	m_dst{ x, y, w, h },
+	m_tex(tex),
+	m_spriteMax(spriteMax),
+	m_frameMax(frameMax) {}
+
+Sprite::Sprite(const Sprite& base, int x, int y) :
+	m_src{ base.m_src.x, base.m_src.y, base.m_src.w, base.m_src.h },
+	m_dst{ x, y, base.m_dst.w, base.m_dst.h },
+	m_tex(base.m_tex),
+	m_spriteMax(base.m_spriteMax),
+	m_frameMax(base.m_frameMax) {}
+
 void Sprite::animate()
 {
 	if (m_spriteMax != 0)
@@ -15,12 +39,4 @@ void Sprite::animate()
 		else
 			m_frame++;			// Increment the frame counter
 	}
-}
-
-void Sprite::renderOffset(SDL_Renderer * renderer, SDL_Rect* camera, int screenW, int screenH)
-{
-	//SDL_Rect l_rOffset = { m_dst.x - camera->x, m_dst.y - camera->y, m_dst.w / camera->w / screenW, m_dst.h / camera->h / screenH };
-	//SDL_Rect l_rOffset = { m_dst.x, m_dst.y, m_dst.w, m_dst.h };
-	SDL_Rect l_rOffset = { m_dst.x - camera->x, m_dst.y - camera->y, m_dst.w, m_dst.h };
-	SDL_RenderCopy(renderer, m_tex, &m_src, &l_rOffset);
 }

@@ -1,37 +1,55 @@
-/*---------------------------------------- GAME1007_M2_Bacon -------------------------------------------
-							  GAME1007 Milesone 2, project by Kiera Bacon
+/*---------------------------------------- GAME1007_M3_Bacon -------------------------------------------
+							  GAME1007 Milesone 3, project by Kiera Bacon
 
 Credits:
 Background images: Free Cartoon Forest 2D Backgrounds by http://www.craftpix.net.
-Player character image: Forest Monsters by Calciumtrice, usable under Creative Commons Attribution 3.0 license, https://opengameart.org/content/forest-monsters.
+Player character and enemy images: Forest Monsters by Calciumtrice, usable under Creative Commons Attribution 3.0 license, https://opengameart.org/content/forest-monsters.
 Player bullet image: modified from Animated Charged Bolt by Hansjörg Malthaner, http://opengameart.org/users/varkalandar.
+Enemy bullet image: Animated Fires by Stealthix, usable under the Creative Commons Zero v1.0 Universal asset license, https://stealthix.itch.io/animated-fires.
+HUD image (not used... yet): FANTASY GUI by MELLE, usable as part of the CC0 1.0 Universal Public Domain Dedication, https://opengameart.org/content/fantasy-gui-0.
 //----------------------------------------------------------------------------------------------------*/
 
 /*--------------------------------------------------
 		 Preprocessor and Global Variables
 --------------------------------------------------*/
 // Preprocessor directives
-#include <algorithm>	// Used for bullet vector cleanup algorithm
-#include <iostream>		// Used for printing debug info to the console
-#include <vector>		// Used for saving a dynamic number of bullets
-#include <SDL.h>		// Base game engine
-#include <SDL_image.h>	// Used for loading and rendering images
-#include "Background.h"	// Class for the background
-#include "Player.h"		// Class for the player
+#include <algorithm>				// Used for bullet vector cleanup algorithm
+#include <iostream>					// Used for printing debug info to the console
+#include <vector>					// Used for saving a dynamic number of bullets
+#include <ctime>					// Used for intitializing the random seed
+#include <SDL.h>					// Base game engine
+#include <SDL_image.h>				// Used for loading and rendering images
+#include "Background.h"				// Class for the background
+#include "Player.h"					// Class for the player
+#include "ObjectSpawner.h"			// Class for the object spawner
+#include "HUD.h"					// Class for the HUD
+#include "Camera.h"					// Class for the camera
 
-#define SPRITE_BACKGROUND "Cartoon_Forest_BG_01.png"
-#define SPRITE_PLAYER "butterfly spritesheet.png"
-#define SPRITE_BULLET "hjm-charged_bolt.png"
-#define WIDTH 1024
-#define HEIGHT 768
-#define FPS 60
+// Defined engine parameters
+#define SCREENW 1024				// Width of the window in pixels
+#define SCREENH 768					// Height of the window in pixels
+#define FPS 60						// Number of frames per second of real time
 
-#define PLAYERSPEED 5				// Speed of the player's movement
+// Defined gameplay parameters
+#define IMG_BACKGROUND "Cartoon_Forest_BG_01.png"
+#define IMG_ENERGYBAR "GUI_1.png"
+#define IMG_BUTTERFLY "butterfly_spritesheet.png"
+#define IMG_POLLEN "hjm-charged_bolt.png"
+#define IMG_FIREBALL "Fireball_68x9.png"
+#define IMG_EYE "eyeball_spritesheet.png"
+#define WORLDW 1024					// Width of the game world in pixels == width of the screen
+#define WORLDH 1080					// Height of the game world in pixels == height of the background image
+#define BACKGROUNDFRAMES 2			// Number of frames per pixel moved by the background
+#define PLAYERSPEED 5				// Number of pixels moved each frame by the player
 #define PLAYERENERGYMAX 100			// Maximum amount of energy
 #define PLAYERENERGY PLAYERENERGYMAX// Current amount of energy
-#define PLAYERREGENRATE 5			// Number of frames between regen ticks
+#define PLAYERREGENRATE 3			// Number of frames per energy regen tick
 #define PLAYERREGENQTY 1			// Amount of energy regenerated per tick
-#define BACKGROUNDFRAMES 2			// Speed of the background
+#define WEAPONSPEED 1				// Number of pixels moved each frame by the projectiles of the default weapon
+#define WEAPONDMG 20				// Amount of damage dealt by the projectiles of the default weapon
+#define WEAPONRFR 8					// Number of frames per shot fired by the default weapon
+#define WEAPONENC 10				// Energy cost of each shot fired by the detault weapon
+
 using namespace std;
 
 // Global engine variables
@@ -40,19 +58,32 @@ Uint32 g_start, g_end, g_delta, g_fps;	// Fixed timestamp variables
 const Uint8* g_iKeystates;			// Keyboard state container
 SDL_Window* g_pWindow;				// This represents the SDL window
 SDL_Renderer* g_pRenderer;			// This represents the buffer to draw to
-SDL_Rect g_rCamera;					// This represents the area viewed by the camera
 
 // Global gameplay variables
 int g_iBounds = 8;					// Bounds at the edge of the play area
+Background g_background;			// Background object
+SDL_Rect g_world;					// Frame inside which all gameplay happens
+Camera g_camera;					// Camera object
 Player g_player;					// Player object
-Sprite g_projectileSprite;			// Base sprite object for all projectiles
-Weapon g_weapon;					// Base weapon object
-Background g_Background;			// Background object
-SDL_Rect g_rMaxAmmo, g_rCurAmmo;	// Ammo display objects.
+HUD g_HUD;							// HUD object
+Weapon g_weapon_Pollen1;			// Default weapon object
+Weapon g_weapon_Fireball1;			// Default weapon object
+ObjectSpawner g_objSpawner;			// Object spawner for the level
 SDL_Texture* g_pTex_BG;				// Pointer to the background texture
-SDL_Texture* g_pTex_Player;			// Pointer to the player texture
-SDL_Texture* g_pTex_Bullet;			// Pointer to the bullet texture
-vector<Projectile*> g_vProjectileVec;	// Holds pointers to dynamically-created Bullet objects.
+SDL_Texture* g_pTex_EnergyBar;		// Pointer to the Energy bar texture
+SDL_Texture* g_pTex_Butterfly;		// Pointer to the Butterfly texture
+SDL_Texture* g_pTex_Pollen;			// Pointer to the Pollen texture
+SDL_Texture* g_pTex_Fireball;		// Pointer to the Fireball texture
+SDL_Texture* g_pTex_Eye;			// Pointer to the Eye texture
+vector<Projectile*> g_pVec_AllyPrj;	// Holds pointers to dynamic Bullet objects, tested for collision against enemies.
+vector<Enemy*> g_pVec_Enemy;		// Holds pointers to dynamic Enemy objects, tested for collision against the player.
+vector<Projectile*> g_pVec_EnemyPrj;// Holds pointers to dynamic Bullet objects, tested for collision against the player.
+
+// Global object templates
+Sprite g_sPrj_Pollen;				// Template Sprite object for the player's default weapon projectiles
+Sprite g_sMOB_Eye;					// Template Sprite object for the basic enemy
+Enemy g_enemy_Eye;					// Template Enemy object for the basic enemy
+Sprite g_sPrj_Fireball;				// Template Sprite object for the basic enemy's weapon projectiles
 
 /*--------------------------------------------------
 			  Functions for game loop
@@ -75,9 +106,12 @@ bool init(const char* title, int xpos, int ypos, int width, int height, int flag
 			{
 				// Load the textures
 				if (IMG_Init(IMG_INIT_PNG)) {
-					g_pTex_BG = IMG_LoadTexture(g_pRenderer, SPRITE_BACKGROUND);
-					g_pTex_Player = IMG_LoadTexture(g_pRenderer, SPRITE_PLAYER);
-					g_pTex_Bullet = IMG_LoadTexture(g_pRenderer, SPRITE_BULLET);
+					g_pTex_BG = IMG_LoadTexture(g_pRenderer, IMG_BACKGROUND);
+					g_pTex_EnergyBar = IMG_LoadTexture(g_pRenderer, IMG_ENERGYBAR);
+					g_pTex_Butterfly = IMG_LoadTexture(g_pRenderer, IMG_BUTTERFLY);
+					g_pTex_Pollen = IMG_LoadTexture(g_pRenderer, IMG_POLLEN);
+					g_pTex_Fireball = IMG_LoadTexture(g_pRenderer, IMG_FIREBALL);
+					g_pTex_Eye = IMG_LoadTexture(g_pRenderer, IMG_EYE);
 				}
 				else return false; // Texture init fail
 			}
@@ -90,17 +124,27 @@ bool init(const char* title, int xpos, int ypos, int width, int height, int flag
 	g_fps = (Uint32)round((1 / (double)FPS) * 1000); // Sets FPS in milliseconds and rounds
 	g_iKeystates = SDL_GetKeyboardState(nullptr);
 
-	// Create the base gameplay objects
-	g_projectileSprite = { 0, 0, 32, 32, 0, 0, 16, 16, g_pTex_Bullet, 2, 4 };
-	g_weapon = { &g_vProjectileVec, &g_projectileSprite, beam, 5, 0, 0, 1, 1, 8 };
-	g_player = { &g_weapon, PLAYERSPEED, PLAYERENERGY, PLAYERENERGYMAX, PLAYERREGENRATE, PLAYERREGENQTY, 
-		0, 0, 32, 32, WIDTH / 10, HEIGHT / 2 - 16, 32, 32, g_pTex_Player, 8, 1 };
-	g_Background = { BACKGROUNDFRAMES, 1, 0, 0, 1920, 1080, 0, (HEIGHT - 1080) / 2, 1920, 1080, g_pTex_BG };
-	g_rCamera = { 0, 0, WIDTH, HEIGHT};
+	// Initialize static class members
+	ObjectSpawner::setWorld(&g_world);
+	MOB::setWorld(&g_world);
 
-	// Create the ammo sprite
-	//g_rMaxAmmo = { WIDTH / 100, HEIGHT / 100, WIDTH / 80, HEIGHT / 8 };
-	//g_rCurAmmo = { g_rMaxAmmo.x, g_rMaxAmmo.y, g_rMaxAmmo.w, g_rMaxAmmo.h * static_cast<int>(g_dPlayerCurAmmo / g_dPlayerMaxAmmo) };
+	// Initialize template objects
+	g_sMOB_Eye = { 0, 32, 32, 32, 0, 0, 48, 48, g_pTex_Eye, 8, 2 };
+	g_sPrj_Fireball = { 0, 0, 68, 9, 0, 0, 68, 9, g_pTex_Fireball, 10, 1 };
+	g_weapon_Fireball1 = { &g_pVec_EnemyPrj, &g_sPrj_Fireball, beam, 3, 180, 0, 40, 1, 180, 0 };
+	g_enemy_Eye = { g_sMOB_Eye, 0, 0, 1, 180, g_weapon_Fireball1, 30, 30, -1, 0 };
+	
+	g_sPrj_Pollen = { 0, 0, 32, 32, 0, 0, 16, 16, g_pTex_Pollen, 2, 4 };
+	g_weapon_Pollen1 = { &g_pVec_AllyPrj, &g_sPrj_Pollen, beam, WEAPONSPEED, 0, 0, WEAPONDMG, 1, WEAPONRFR, WEAPONENC };
+
+	// Initialize gameplay objects
+	g_background = { BACKGROUNDFRAMES, 1, 0, 0, 1920, 1080, 0, 0, 1920, 1080, g_pTex_BG, 0, 0 };
+	g_world = { 0, 0, WORLDW, WORLDH };
+	g_player = { &g_weapon_Pollen1, PLAYERSPEED, PLAYERENERGY, PLAYERENERGYMAX, PLAYERREGENRATE, PLAYERREGENQTY,
+		0, 0, 32, 32, g_world.w / 10, g_world.h / 2 - 16, 32, 32, g_pTex_Butterfly, 8, 1 };
+	g_camera = { &g_player, &g_world, 0, g_player.getY() + g_player.getH() / 2 - SCREENH / 2, SCREENW, SCREENH };
+	g_HUD = { &g_player, SCREENW, SCREENH };
+	g_objSpawner = { &g_pVec_Enemy, &g_enemy_Eye, 240 };
 
 	// Everything is okay, start the engine
 	g_bRunning = true;
@@ -159,93 +203,129 @@ bool keyDown(SDL_Scancode c)
 // Gamestate update function
 void update()
 {
-	// This is the main game stuff
-	//bool l_bAnimate = false; // Flag for whether to animate
-	//if (g_dPlayerFireCD > 0)
-	//	g_dPlayerFireCD -= dt; // Update the refire cooldown
-	//if (g_dPlayerCurAmmo != g_dPlayerMaxAmmo)
-	//{
-	//	if (g_dPlayerCurAmmo + dt * g_dPlayerAmmoRegen <= g_dPlayerMaxAmmo)
-	//		g_dPlayerCurAmmo += dt * g_dPlayerAmmoRegen; // Update the player's ammo
-	//	else
-	//		g_dPlayerCurAmmo = g_dPlayerMaxAmmo; // But only to the max
-	//}
-	//if (g_dAnimCD > 0)
-	//	g_dAnimCD -= dt; // Update the reanimation cooldown
-	//else
-	//{
-	//	g_dAnimCD = g_dAnimRate;
-	//	l_bAnimate = true;
-	//}
-
 	// Take input from the player and update the player's position
 	if (keyDown(SDL_SCANCODE_W) && g_player.getY() - g_iBounds > 0)
-	{
 		g_player.setY(g_player.getY() - g_player.getSpeed());
-		g_rCamera.y -= g_player.getSpeed();
-	}
-	if (keyDown(SDL_SCANCODE_S) && g_player.getY() + g_player.getH() + g_iBounds < HEIGHT)
-	{
+	if (keyDown(SDL_SCANCODE_S) && g_player.getY() + g_player.getH() + g_iBounds < g_world.h)
 		g_player.setY(g_player.getY() + g_player.getSpeed());
-		g_rCamera.y += g_player.getSpeed();
-	}
 	if (keyDown(SDL_SCANCODE_A) && g_player.getX() - g_iBounds > 0)
 		g_player.setX(g_player.getX() - g_player.getSpeed());
-	if (keyDown(SDL_SCANCODE_D) && g_player.getX() + g_player.getW() + g_iBounds < WIDTH / 2)
+	if (keyDown(SDL_SCANCODE_D) && g_player.getX() + g_player.getW() + g_iBounds < g_world.w / 2)
 		g_player.setX(g_player.getX() + g_player.getSpeed());
-	if (keyDown(SDL_SCANCODE_SPACE) && g_player.m_iEnergy > 0)
-		g_player.m_iEnergy += g_player.m_pWeapon->fire(g_player.getX() + g_player.getW() / 2, g_player.getY() + g_player.getH() / 2);
-	
-	// Update playing field
-	//m_dst2.y = m_dst.y = static_cast<int>(
-	//	(static_cast<double>(-playerY) / static_cast<double>(screenH)) *
-	//	(static_cast<double>(m_src.h) - static_cast<double>(screenH)));
-	/*g_rField.y = -g_player.getY() / HEIGHT * g_Background.getH() - HEIGHT;
-
-	HEIGHT / 2*/ 
-
+	if (keyDown(SDL_SCANCODE_SPACE))
+		g_player.fire();
 
 	// Update objects
-	g_Background.update(HEIGHT, g_player.getY());
+	g_background.update(SCREENH, g_player.getY());
+	g_camera.update();
+	g_HUD.update();
+	g_objSpawner.update();
 	g_player.update();
 	g_player.animate();
-	for (int i = 0; i < (int)g_vProjectileVec.size(); i++)
+	g_weapon_Pollen1.update();
+	g_weapon_Fireball1.update();
+
+	// Update the vector of ally projectiles
+	for (unsigned int i = 0; i < (int)g_pVec_AllyPrj.size(); i++)
 	{
-		g_vProjectileVec[i]->update(WIDTH, HEIGHT);
-		if (!g_vProjectileVec[i]->getActive())
+		g_pVec_AllyPrj[i]->update();
+
+		// Check for collision against enemies
+		for (unsigned int j = 0; j < g_pVec_Enemy.size(); j++)
 		{
-			delete g_vProjectileVec[i];
-			g_vProjectileVec[i] = nullptr;
+			if (SDL_HasIntersection(g_pVec_AllyPrj[i]->getDst(), g_pVec_Enemy[j]->getDst()))
+			{
+				g_pVec_AllyPrj[i]->setActive(false);
+				g_pVec_Enemy[j]->setEnergy(-g_pVec_AllyPrj[i]->getDamage());
+			}
+		}
+
+		// Update the vector
+		if (!g_pVec_AllyPrj[i]->getActive())
+		{
+			delete g_pVec_AllyPrj[i];
+			g_pVec_AllyPrj[i] = nullptr;
 		}
 		else
-			g_vProjectileVec[i]->animate();
+			g_pVec_AllyPrj[i]->animate();
 	}
-	if (!g_vProjectileVec.empty())
+	if (!g_pVec_AllyPrj.empty())
 	{
-		g_vProjectileVec.erase(remove(g_vProjectileVec.begin(), g_vProjectileVec.end(), nullptr), g_vProjectileVec.end());
-		g_vProjectileVec.shrink_to_fit();
+		g_pVec_AllyPrj.erase(remove(g_pVec_AllyPrj.begin(), g_pVec_AllyPrj.end(), nullptr), g_pVec_AllyPrj.end());
+		g_pVec_AllyPrj.shrink_to_fit();
+	}
+
+	// Update the vector of enemy projectiles
+	for (unsigned int i = 0; i < (int)g_pVec_EnemyPrj.size(); i++)
+	{
+		g_pVec_EnemyPrj[i]->update();
+
+		// Check for collision against the playe
+		if (SDL_HasIntersection(g_pVec_EnemyPrj[i]->getDst(), g_player.getDst()))
+		{
+			g_pVec_EnemyPrj[i]->setActive(false);
+			g_player.setEnergy(-g_pVec_EnemyPrj[i]->getDamage());
+		}
+
+		// Update the vector
+		if (!g_pVec_EnemyPrj[i]->getActive())
+		{
+			delete g_pVec_EnemyPrj[i];
+			g_pVec_EnemyPrj[i] = nullptr;
+		}
+		else
+			g_pVec_EnemyPrj[i]->animate();
+	}
+	if (!g_pVec_EnemyPrj.empty())
+	{
+		g_pVec_EnemyPrj.erase(remove(g_pVec_EnemyPrj.begin(), g_pVec_EnemyPrj.end(), nullptr), g_pVec_EnemyPrj.end());
+		g_pVec_EnemyPrj.shrink_to_fit();
+	}
+
+	// Update the vector of enemies
+	for (unsigned int i = 0; i < (int)g_pVec_Enemy.size(); i++)
+	{
+		g_pVec_Enemy[i]->update();
+		if (!g_pVec_Enemy[i]->getActive())
+		{
+			delete g_pVec_Enemy[i];
+			g_pVec_Enemy[i] = nullptr;
+		}
+		else
+			g_pVec_Enemy[i]->animate();
+	}
+	if (!g_pVec_Enemy.empty())
+	{
+		g_pVec_Enemy.erase(remove(g_pVec_Enemy.begin(), g_pVec_Enemy.end(), nullptr), g_pVec_Enemy.end());
+		g_pVec_Enemy.shrink_to_fit();
 	}
 }
 
 // Screen render function
 void render()
 {
-	// Render stuff
-	//SDL_RenderCopy(g_pRenderer, g_Background.getTex(), g_Background.getSrc(), g_Background.getDst());
-	//SDL_RenderCopy(g_pRenderer, g_Background.getTex(), g_Background.getSrc(), g_Background.getDst2());
-	//SDL_SetRenderDrawColor(g_pRenderer, 128, 144, 160, 64);
-	//SDL_RenderFillRect(g_pRenderer, &g_rMaxAmmo);
-	//SDL_SetRenderDrawColor(g_pRenderer, 176, 208, 240, 255);
-	//SDL_RenderFillRect(g_pRenderer, &g_rCurAmmo);
-	//SDL_RenderCopyEx(g_pRenderer, g_player.getTex(), g_player.getSrc(), g_player.getDst(), 0, nullptr, SDL_FLIP_HORIZONTAL);
-	//for (int i = 0; i < (int)g_vProjectileVec.size(); i++)
-	//	SDL_RenderCopy(g_pRenderer, g_vProjectileVec[i]->getTex(), g_vProjectileVec[i]->getSrc(), g_vProjectileVec[i]->getDst());
-	g_Background.renderOffset(g_pRenderer, &g_rCamera, WIDTH, HEIGHT);
-	g_player.renderOffset(g_pRenderer, &g_rCamera, WIDTH, HEIGHT);
-	for (int i = 0; i < (int)g_vProjectileVec.size(); i++)
-		g_vProjectileVec[i]->renderOffset(g_pRenderer, &g_rCamera, WIDTH, HEIGHT);
+	// Render the background
+	SDL_RenderCopy(g_pRenderer, g_background.getTex(), g_background.getSrc(), g_camera.getOffset(g_background.getDst()));
+	SDL_RenderCopy(g_pRenderer, g_background.getTex(), g_background.getSrc(), g_camera.getOffset(g_background.getDst2()));
 	
+	// Render the HUD
+	SDL_SetRenderDrawColor(g_pRenderer, 128, 144, 160, 64);
+	SDL_RenderFillRect(g_pRenderer, g_HUD.getMax());
+	SDL_SetRenderDrawColor(g_pRenderer, 176, 208, 240, 255);
+	SDL_RenderFillRect(g_pRenderer, g_HUD.getCur());
 
+	// Render the player
+	SDL_RenderCopyEx(g_pRenderer, g_player.getTex(), g_player.getSrc(), g_camera.getOffset(g_player.getDst()), 0, nullptr, SDL_FLIP_HORIZONTAL);
+	
+	// Render the enemies
+	for (unsigned int i = 0; i < (int)g_pVec_Enemy.size(); i++)
+		SDL_RenderCopy(g_pRenderer, g_pVec_Enemy[i]->getTex(), g_pVec_Enemy[i]->getSrc(), g_camera.getOffset(g_pVec_Enemy[i]->getDst()));
+
+	// Render the projectiles
+	for (unsigned int i = 0; i < (int)g_pVec_AllyPrj.size(); i++)
+		SDL_RenderCopy(g_pRenderer, g_pVec_AllyPrj[i]->getTex(), g_pVec_AllyPrj[i]->getSrc(), g_camera.getOffset(g_pVec_AllyPrj[i]->getDst()));
+	for (unsigned int i = 0; i < (int)g_pVec_EnemyPrj.size(); i++)
+		SDL_RenderCopy(g_pRenderer, g_pVec_EnemyPrj[i]->getTex(), g_pVec_EnemyPrj[i]->getSrc(), g_camera.getOffset(g_pVec_EnemyPrj[i]->getDst()));
 
 	// Draw anew
 	SDL_RenderPresent(g_pRenderer);
@@ -256,8 +336,8 @@ void shutdown()
 {
 	cout << "Cleaning game." << endl;
 	SDL_DestroyTexture(g_pTex_BG);
-	SDL_DestroyTexture(g_pTex_Player);
-	SDL_DestroyTexture(g_pTex_Bullet);
+	SDL_DestroyTexture(g_pTex_Butterfly);
+	SDL_DestroyTexture(g_pTex_Pollen);
 	SDL_DestroyRenderer(g_pRenderer);
 	SDL_DestroyWindow(g_pWindow);
 	SDL_Quit();
@@ -266,8 +346,10 @@ void shutdown()
 // Main function
 int main(int argc, char* args[]) // Main MUST have these parameters for SDL.
 {
+	srand((unsigned)time(NULL));
+
 	if (init("GAME1007_SDL_Setup", SDL_WINDOWPOS_CENTERED,
-		SDL_WINDOWPOS_CENTERED, WIDTH, HEIGHT, 0) == false)
+		SDL_WINDOWPOS_CENTERED, SCREENW, SCREENH, 0) == false)
 		return 1;
 
 	while (g_bRunning)
