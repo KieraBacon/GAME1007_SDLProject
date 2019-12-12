@@ -37,6 +37,7 @@ public:
 	SDL_Texture* getTex() { return m_pTex; }
 	
 	// Mutator methods
+	void setActive(bool b) { m_bActive = b; }
 	void setX(int x) { m_dst.x = x; }
 	void setY(int y) { m_dst.y = y; }
 	void setW(int w) { m_dst.w = w; }
@@ -44,6 +45,7 @@ public:
 
 	// Unique class methods
 	void animate();
+	virtual void update();
 };
 
 
@@ -81,7 +83,7 @@ public:
 
 
 
-class MOB :
+class MOB : 
 	public Sprite
 {
 protected:
@@ -111,7 +113,11 @@ public:
 	float getAngle() { return m_fAngle; }
 
 	// Mutator methods
-	void setActive(bool b) { m_bActive = b; }
+	void setCol(SDL_Rect col) { m_col = col; }
+	void setSnd_End(Mix_Chunk* snd) { m_pSnd_End = snd; }
+	void setSpeed(int s) { m_iSpeed = s; }
+	void setMR(int mr) { m_iMoveRate = mr; }
+	void setAngle(float a) { m_fAngle = a; }
 
 	// Static mutator
 	static void setWorld(SDL_Rect* w) { m_pWorld = w; }
@@ -135,7 +141,7 @@ public:
 
 	// Constructor that takes values for all members
 	Projectile(SDL_Rect src, SDL_Rect dst, SDL_Rect col, SDL_Texture* tex, int sm, int fm,
-		Mix_Chunk* ssnd, Mix_Chunk* esnd, int mr = 1, int spd = 0, float ang = 0, int dmg = 0);
+		Mix_Chunk* ssnd, Mix_Chunk* esnd, int mr = 1, int spd = 1, float ang = 0, int dmg = 0);
 
 	// Copy constructor that takes x and y spawn coordinates, speed, angle, and damage
 	Projectile(const Projectile& base, int x, int y, int mr, int spd, float ang, int dmg);

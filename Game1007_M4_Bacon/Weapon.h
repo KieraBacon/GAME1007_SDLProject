@@ -22,7 +22,7 @@ public:
 	Weapon() {};
 
 	// Base constructor that assigns all members
-	Weapon(std::vector<Projectile*>* vec, const Projectile& prj, pattern pat, int spd, float ang, int dmg, int off, int qty, int rfr, int enc);
+	Weapon(std::vector<Projectile*>* vec, const Projectile& prj, pattern pat, int mr, int spd, float ang, int dmg, int off, int qty, int rfr, int enc);
 
 	// Copy constructor that takes a vector and a base angle
 	Weapon(const Weapon& wpn, std::vector<Projectile*>* vec, float ang);

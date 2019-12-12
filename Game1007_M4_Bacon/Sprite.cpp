@@ -1,5 +1,6 @@
 #include "Sprite.h"
 #include <cmath>		// Used for sin and cos functions
+#include <iostream>
 #define PI 3.14159265	// Value of PI needed for sin and cos functions
 
 Sprite::Sprite(SDL_Rect src, SDL_Rect dst, SDL_Texture* tex, int sm, int fm, int rm, bool e) :
@@ -13,6 +14,7 @@ void Sprite::animate()
 {
 	if (m_iFrameMax != -1)
 	{
+		m_iFrame++;			// Increment the frame counter
 		if (m_iFrame == m_iFrameMax)
 		{
 			m_iFrame = 0;		// Roll the frame counter back to 0
@@ -22,13 +24,24 @@ void Sprite::animate()
 				m_iSprite = 0;		// Roll the sprite back to 0
 				m_iRow++;			// Increment the row index
 				if (m_iRow == m_iRowMax)
-					m_bExpires ? m_bActive = false : m_iRow = 0;	// Expire or roll the row back to 0
+				{
+					if (m_bExpires)		// If the sprite expires
+						m_bActive = false;	// Flag it for deletion
+					else
+						m_iRow = 0;			// Otherwise, roll the row back to 0
+				}
 				m_src.y = m_src.h * m_iRow;	// Set the new source.y
 			}
 			m_src.x = m_src.w * m_iSprite;	// Set the new source.x
-		}
-		else
-			m_iFrame++;			// Increment the frame counter
+		}	
+	}
+}
+
+void Sprite::update()
+{
+	if (m_bActive)
+	{
+		animate();
 	}
 }
 
@@ -44,19 +57,23 @@ Background::Background(SDL_Rect src, SDL_Rect dst, SDL_Texture * tex, int sm, in
 
 void Background::update()
 {
-	// Update the x position only on frame count
-	if (m_iMoveCD == m_iMoveRate)
+	if (m_bActive)
 	{
-		m_iMoveCD = 0;
-		m_dst.x -= m_iSpeed;
-		m_dst2.x -= m_iSpeed;
-		if (m_dst.x <= 0 - m_dst.w)			// If the first background is fully off screen to the left
-			m_dst.x = m_dst2.x + m_dst2.w;	// Move it to the right of the second background
-		if (m_dst2.x <= 0 - m_dst2.w)		//  ' '	  second background
-			m_dst2.x = m_dst.x + m_dst.w;	//  ' '						   first background
-	}
-	else
+		animate();
+
+		// Update the x position only on frame count
 		m_iMoveCD++;
+		if (m_iMoveCD == m_iMoveRate)
+		{
+			m_iMoveCD = 0;
+			m_dst.x -= m_iSpeed;
+			m_dst2.x -= m_iSpeed;
+			if (m_dst.x <= 0 - m_dst.w)			// If the first background is fully off screen to the left
+				m_dst.x = m_dst2.x + m_dst2.w;	// Move it to the right of the second background
+			if (m_dst2.x <= 0 - m_dst2.w)		//  ' '	  second background
+				m_dst2.x = m_dst.x + m_dst.w;	//  ' '						   first background
+		}
+	}
 }
 
 
@@ -79,22 +96,26 @@ SDL_Rect* MOB::getCol()
 
 void MOB::update()
 {
-	// Update position only on frame count
-	if (m_iMoveCD == m_iMoveRate)
+	if (m_bActive && m_iMoveRate)
 	{
-		m_iMoveCD = 0;
-		m_dst.x += m_iSpeed * static_cast<int>(cos(m_fAngle * PI / 180));
-		m_dst.y -= m_iSpeed * static_cast<int>(sin(m_fAngle * PI / 180));
-	}
-	else
-		m_iMoveCD++;
+		animate();
 
-	// Check if off-screen
-	if (m_dst.x + m_dst.w < m_pWorld->x ||
-		m_dst.x > m_pWorld->w ||
-		m_dst.y + m_dst.h < m_pWorld->y ||
-		m_dst.y > m_pWorld->h)
-		m_bActive = false;
+		// Update position only on frame count
+		m_iMoveCD++;
+		if (m_iMoveCD == m_iMoveRate)
+		{
+			m_iMoveCD = 0;
+			m_dst.x += m_iSpeed * static_cast<int>(cos(m_fAngle * PI / 180));
+			m_dst.y -= m_iSpeed * static_cast<int>(sin(m_fAngle * PI / 180));
+		}
+
+		// Check if off-world
+		if (m_dst.x + m_dst.w < m_pWorld->x ||
+			m_dst.x > m_pWorld->w ||
+			m_dst.y + m_dst.h < m_pWorld->y ||
+			m_dst.y > m_pWorld->h)
+			m_bActive = false;
+	}
 }
 
 

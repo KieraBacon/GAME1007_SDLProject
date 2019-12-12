@@ -162,7 +162,6 @@ bool init(const char* title, int xpos, int ypos, int width, int height, int flag
 
 	// Initialize static class members
 	ObjectSpawner<Enemy>::setWorld(&g_world);
-	ObjectSpawner<Projectile>::setWorld(&g_world);
 	MOB::setWorld(&g_world);
 
 	// Create template objects
@@ -171,28 +170,32 @@ bool init(const char* title, int xpos, int ypos, int width, int height, int flag
 	g_sEffect_FlameRing = { SDL_Rect{ 0, 0, 128, 128 }, SDL_Rect{ 0, 0, 64, 64 }, g_pTex_FlameRing, 8, 1, 5, true };
 
 	// Pollen shooter weapon
-	Projectile l_prj_Pollen = { SDL_Rect{ 0, 0, 32, 32 }, SDL_Rect{ 0, 0, 16, 16 }, SDL_Rect{ 0, 0, 16, 16 },
+	Projectile l_prj_Pollen = { SDL_Rect{ 0, 0, 32, 32 }, SDL_Rect{ 0, 0, 16, 16 }, SDL_Rect{ 1, 1, 14, 14 },
 		g_pTex_Pollen, 2, 4, g_pSnd_Pollen_Start, g_pSnd_Pollen_End };
-	Weapon l_wpn_Pollen1 = { &g_pVec_AllyPrj, l_prj_Pollen, beam, 1, 0, 20, 0, 1, 8, 10 };
+	Weapon l_wpn_Pollen1 = { &g_pVec_AllyPrj, l_prj_Pollen, beam, 1, 1, 0, 20, 0, 1, 8, 10 };
 
 	// Fireball shooter weapon
 	Projectile l_prj_Fireball = { SDL_Rect{ 0, 0, 68, 9 }, SDL_Rect{ 0, 0, 68, 9 }, SDL_Rect{ 0, 0, 9, 9 },
 		g_pTex_Fireball, 10, 1, g_pSnd_Fireball_Start, g_pSnd_Fireball_End };
-	Weapon l_wpn_Fireball1 = { &g_pVec_EnemyPrj, l_prj_Fireball, beam, 3, 0, 40, 0, 1, 180, 0 };
+	Weapon l_wpn_Fireball1 = { &g_pVec_EnemyPrj, l_prj_Fireball, beam, 1, 2, 0, 40, 0, 1, 180, 0 };
 
 	// Floating eyeball enemy
-	Enemy l_enemy_Eye = { SDL_Rect{ 0, 0, 32, 32 }, SDL_Rect{ 0, 0, 48, 48 }, SDL_Rect{ 8, 8, 32, 32 },
-		g_pTex_Eye, 8, 2, g_pSnd_Eye_End, 0, 1, 180, Weapon{ l_wpn_Fireball1, &g_pVec_EnemyPrj, 180 }, 30, 30, -1, 0 };
+	Enemy l_enemy_Eye = {
+		MOB{ SDL_Rect{ 0, 0, 32, 32 }, SDL_Rect{ 0, 0, 48, 48 }, SDL_Rect{ 8, 8, 32, 32 }, g_pTex_Eye, 8, 2, g_pSnd_Eye_End, 1, 1, 180 },
+		EnergyPool{ 30, 30, -1, 0 },
+		Weapon{ l_wpn_Fireball1, &g_pVec_EnemyPrj, 180 } };
 
 	// Branch obstacle (/enemy)
-	Enemy l_enemy_Branch = { SDL_Rect{ 800, 0, 200, 100 }, SDL_Rect{ 0, 0, OBSTACLEGRIDSIZE, OBSTACLEGRIDSIZE }, SDL_Rect{ 5, 5, 54, 54 },
-		g_pTex_Branch, 1, -1, g_pSnd_Fireball_End, BACKGROUNDFRAMES, 1, 180, Weapon{ nullptr, Projectile{}, beam, 0, 0, 0, 0, 0, -1, 0 }, -1, -1, -1, -1 };
+	Enemy l_enemy_Branch = {
+		MOB{ SDL_Rect{ 800, 0, 200, 100 }, SDL_Rect{ 0, 0, OBSTACLEGRIDSIZE, OBSTACLEGRIDSIZE }, SDL_Rect{ 5, 5, 54, 54 }, g_pTex_Branch, 1, -1, g_pSnd_Fireball_End, BACKGROUNDFRAMES, 1, 180 },
+		EnergyPool{ -1, -1, -1, -1 },
+		Weapon{ nullptr, Projectile{}, beam, 0, 0, 0, 0, 0, 0, -1, 0 } };
 
 	// Initialize gameplay objects
 	g_background = { SDL_Rect{ 0, 0, 1920, 1080 }, SDL_Rect{ 0, 0, 1920, 1080 }, g_pTex_BG, 1, -1, BACKGROUNDFRAMES };
 	g_world = { 0, 0, WORLDW, WORLDH };
 	g_player = { SDL_Rect{ 0, 0, 32, 32 }, SDL_Rect{g_world.w / 10, g_world.h / 2 - 16, 32, 32 }, SDL_Rect{ 1, 1, 30, 30},
-		g_pTex_Butterfly, 8, 1, g_pSnd_Eye_End, l_wpn_Pollen1, PLAYERSPEED, PLAYERENERGYMAX, PLAYERENERGYMAX, PLAYERREGENRATE, 1 };
+		g_pTex_Butterfly, 8, 2, g_pSnd_Eye_End, l_wpn_Pollen1, PLAYERSPEED, PLAYERENERGYMAX, PLAYERENERGYMAX, PLAYERREGENRATE, 1 };
 	g_camera = { &g_player, &g_world, 0, g_player.getY() + g_player.getH() / 2 - SCREENH / 2, SCREENW, SCREENH };
 	g_HUD = { &g_player, SCREENW, SCREENH };
 	g_objSpawner_Enemy1 = { &g_pVec_Enemy, l_enemy_Eye, 0, 2, 240, 1 };
@@ -349,7 +352,7 @@ void updateVector(vector<Enemy*>& vec, Player& player)
 		if (player.getActive() == true && SDL_HasIntersection(vec[i]->getCol(), player.getCol()))
 		{
 			// Calculate the amount of energy being taken away
-			int energyCost = vec[i]->getEnergy();				// Base damage on collision = the enemy's energy total
+			int energyCost = vec[i]->getEnergyPool()->getEnergy();		// Base damage on collision = the enemy's energy total
 			SDL_Rect* deathSpot = vec[i]->getDst();
 			if (energyCost == -1 || energyCost >= player.getEnergy())	// If the enemy has infinite energy, or just more than the player
 			{
@@ -369,6 +372,14 @@ void updateVector(vector<Enemy*>& vec, Player& player)
 			// Play the collision sound
 			int channel = Mix_PlayChannel(-1, vec[i]->getSnd_End(), 0);
 			Mix_Volume(channel, 128);
+		}
+
+		// Update the UI
+		if (vec[i]->getEnergyPool()->getEnergy() < vec[i]->getEnergyPool()->getEnergyMax())
+		{
+			// Have a vector of Energy Bars, create a new Energy Bar each time if it isn't able to find one there already.
+			// Have an Energy Bar member of each enemy.
+			// OK, what if the Energy Bar member was of the Energy Pool class?
 		}
 
 		// Update the vector

@@ -1,10 +1,10 @@
 #include "Weapon.h"
 
-Weapon::Weapon(std::vector<Projectile*>* vec, const Projectile& prj, pattern pat, int spd, float ang, int dmg, int off, int qty, int rfr, int enc) :
+Weapon::Weapon(std::vector<Projectile*>* vec, const Projectile& prj, pattern pat, int mr, int spd, float ang, int dmg, int off, int qty, int rfr, int enc) :
 	m_pPrjVec(vec),
 	m_prj(prj),
 	m_ePattern(pat),
-	m_iPrjMR(0),
+	m_iPrjMR(mr),
 	m_iPrjSpeed(spd),
 	m_fPrjAngle(ang),
 	m_iDamage(dmg),

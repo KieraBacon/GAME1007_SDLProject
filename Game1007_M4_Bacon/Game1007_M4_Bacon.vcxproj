@@ -123,6 +123,7 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Enemy.cpp" />
+    <ClCompile Include="EnergyPool.cpp" />
     <ClCompile Include="HUD.cpp" />
     <ClCompile Include="Main.cpp" />
     <ClCompile Include="Player.cpp" />
@@ -132,6 +133,7 @@
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Enemy.h" />
+    <ClInclude Include="EnergyPool.h" />
     <ClInclude Include="HUD.h" />
     <ClInclude Include="ObjectSpawner.h" />
     <ClInclude Include="Player.h" />
